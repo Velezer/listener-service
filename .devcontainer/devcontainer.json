@@ -1,0 +1,22 @@
+{
+  "name": "Rust Android WS Listener",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "ms-vscode.cpptools",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  },
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ],
+  "remoteUser": "root",
+  "postCreateCommand": "rustup target add aarch64-linux-android && cargo install cargo-ndk"
+}
