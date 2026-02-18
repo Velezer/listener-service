@@ -6,6 +6,12 @@ RUN apt-get update && apt-get install -y \
     unzip wget git cmake build-essential pkg-config curl zip openjdk-17-jdk ca-certificates && \
     update-ca-certificates && rm -rf /var/lib/apt/lists/*
 
+RUN wget https://services.gradle.org/distributions/gradle-8.7-bin.zip \
+    && unzip gradle-8.7-bin.zip -d /opt \
+    && ln -s /opt/gradle-8.7/bin/gradle /usr/bin/gradle \
+    && rm gradle-8.7-bin.zip
+
+
 # Android SDK/NDK
 ENV ANDROID_SDK_ROOT=/opt/android-sdk
 ENV PATH=$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/bin:$PATH:$ANDROID_SDK_ROOT/platform-tools
