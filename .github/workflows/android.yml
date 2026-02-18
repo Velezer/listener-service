@@ -1,0 +1,59 @@
+name: Build Android Rust APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Java
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+
+    # Android SDK
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    # Install NDK
+    - name: Install NDK
+      run: sdkmanager "ndk;25.2.9519653"
+
+    # Install Rust
+    - name: Install Rust
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- -y
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Add Android target
+      run: rustup target add aarch64-linux-android
+
+    - name: Install cargo-ndk
+      run: cargo install cargo-ndk
+
+    # Build Rust
+    - name: Build Rust library
+      run: |
+        cd rust_core
+        cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release
+
+    # Build APK
+    - name: Build APK
+      run: |
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+
+    # Upload APK
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: ws-app-debug
+        path: android/app/build/outputs/apk/debug/app-debug.apk
