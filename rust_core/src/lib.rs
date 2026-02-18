@@ -10,7 +10,7 @@ static STOP: AtomicBool = AtomicBool::new(false);
 const BUFFER_SIZE: usize = 128;
 
 #[no_mangle]
-pub extern "system" fn Java_com_example_wslistener_WsService_startWs(
+pub extern "system" fn Java_com_listener_WsService_startWs(
     mut env: JNIEnv,
     _class: JClass,
     url: JString,
@@ -65,7 +65,7 @@ pub extern "system" fn Java_com_example_wslistener_WsService_startWs(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_com_example_wslistener_WsService_stopWs(
+pub extern "system" fn Java_com_listener_WsService_stopWs(
     _env: JNIEnv,
     _class: JClass,
 ) {
