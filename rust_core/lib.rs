@@ -9,7 +9,7 @@ use futures_util::StreamExt;
 static STOP: AtomicBool = AtomicBool::new(false);
 
 // === ULTRA-MINIMAL BUFFER POOL ===
-const BUFFER_SIZE: usize = 64; // max message size
+const BUFFER_SIZE: usize = 128; // max message size
 const POOL_SIZE: usize = 1;    // only 1 buffer
 
 #[no_mangle]
