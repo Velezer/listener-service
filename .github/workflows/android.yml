@@ -52,8 +52,13 @@ jobs:
         ./gradlew assembleDebug
 
     # Upload APK
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
+    # - name: Upload APK
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: ws-app-debug
+    #     path: android/app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: ws-app-debug
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        files: android/app/build/outputs/apk/release/app-release.apk
