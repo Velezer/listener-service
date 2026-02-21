@@ -12,9 +12,8 @@ class WsService : Service() {
     companion object {
         private const val CHANNEL_ID = "ws_channel"
         private const val FOREGROUND_NOTIFICATION_ID = 1
-        private const val MESSAGE_NOTIFICATION_ID = 2
+        private const val EVENT_NOTIFICATION_ID = 2
 
-        // Weak reference so JNI can call back without preventing GC
         @Volatile
         private var instance: WeakReference<WsService>? = null
 
@@ -25,13 +24,36 @@ class WsService : Service() {
         external fun startWs(url: String)
         external fun stopWs()
 
-        /**
-         * Called from Rust JNI to post a notification with the WS message.
-         * Must be static so Rust can invoke it via call_static_method.
-         */
+        // --- JNI callbacks (called from Rust, must be @JvmStatic) ---
+
+        @JvmStatic
+        fun onWsConnecting(msg: String) {
+            instance?.get()?.handleEvent("Connecting", msg, android.R.drawable.ic_popup_sync)
+        }
+
+        @JvmStatic
+        fun onWsConnected(msg: String) {
+            instance?.get()?.handleEvent("Connected", msg, android.R.drawable.ic_dialog_info)
+        }
+
         @JvmStatic
         fun onWsMessage(msg: String) {
-            instance?.get()?.showMessageNotification(msg)
+            instance?.get()?.handleEvent("Message", msg, android.R.drawable.ic_dialog_email)
+        }
+
+        @JvmStatic
+        fun onWsDisconnected(msg: String) {
+            instance?.get()?.handleEvent("Disconnected", msg, android.R.drawable.ic_dialog_alert)
+        }
+
+        @JvmStatic
+        fun onWsError(msg: String) {
+            instance?.get()?.handleEvent("Error", msg, android.R.drawable.ic_delete)
+        }
+
+        @JvmStatic
+        fun onWsStopped(msg: String) {
+            instance?.get()?.handleEvent("Stopped", msg, android.R.drawable.ic_media_pause)
         }
     }
 
@@ -57,11 +79,10 @@ class WsService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
 
         startForeground(FOREGROUND_NOTIFICATION_ID, foregroundBuilder.build())
-        updateForegroundNotification("Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        updateForegroundNotification("Fetching WS URL...")
+        updateForeground("Fetching WS URL...")
 
         serviceScope.launch {
             try {
@@ -70,21 +91,17 @@ class WsService : Service() {
                 val wsUrl = ApiClient.fetchWsUrl(apiUrl)
 
                 if (wsUrl != null) {
-                    withContext(Dispatchers.Main) {
-                        updateForegroundNotification("Connecting to WS...")
-                    }
+                    // Rust loop handles connect/reconnect; lifecycle events
+                    // are pushed back via the static JNI callbacks above.
                     startWs(wsUrl)
-                    withContext(Dispatchers.Main) {
-                        updateForegroundNotification("WS disconnected")
-                    }
                 } else {
                     withContext(Dispatchers.Main) {
-                        updateForegroundNotification("Failed to get WS URL")
+                        updateForeground("Failed to get WS URL")
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    updateForegroundNotification("Error: ${e.message}")
+                    updateForeground("Error: ${e.message}")
                 }
             }
         }
@@ -103,27 +120,35 @@ class WsService : Service() {
         }
     }
 
-    /** Updates the persistent foreground notification (status text). */
-    private fun updateForegroundNotification(msg: String) {
+    /**
+     * Central handler for all WS lifecycle events.
+     * Updates the foreground notification status and posts a separate
+     * heads-up notification so the user sees every event.
+     */
+    private fun handleEvent(title: String, detail: String, icon: Int) {
+        updateForeground("$title: $detail")
+        postEventNotification(title, detail, icon)
+    }
+
+    private fun updateForeground(msg: String) {
         foregroundBuilder.setContentText(msg)
         notificationManager.notify(FOREGROUND_NOTIFICATION_ID, foregroundBuilder.build())
     }
 
-    /** Posts a separate notification for each incoming WS message. */
-    private fun showMessageNotification(msg: String) {
+    private fun postEventNotification(title: String, detail: String, icon: Int) {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("WS Message")
-            .setContentText(msg)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
+            .setContentTitle("WS $title")
+            .setContentText(detail)
+            .setSmallIcon(icon)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(MESSAGE_NOTIFICATION_ID, notification)
+        notificationManager.notify(EVENT_NOTIFICATION_ID, notification)
     }
 
     override fun onDestroy() {
-        updateForegroundNotification("Service destroyed")
+        updateForeground("Service destroyed")
         stopWs()
         serviceScope.cancel()
         instance = null
