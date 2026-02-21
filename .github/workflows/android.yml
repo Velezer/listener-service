@@ -66,7 +66,7 @@ jobs:
         cd android
         chmod +x gradlew
         ./gradlew assembleRelease
-
+de
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
