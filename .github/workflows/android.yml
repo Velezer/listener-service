@@ -2,6 +2,7 @@ name: Build Android Rust APK
 
 on:
   push:
+    tags: [ '*' ]
     branches: [ main ]
 
 jobs:
