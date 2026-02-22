@@ -20,7 +20,7 @@ object ApiClient {
                 throw IOException("Unexpected code $response")
             }
 
-            val body = response.body?.string() ?: return null
+            val body = response.body?.string()?.takeIf { it.isNotBlank() } ?: return null
             val json = JSONObject(body)
 
             return json.getString("WS_FEEDER_SERVICE")
