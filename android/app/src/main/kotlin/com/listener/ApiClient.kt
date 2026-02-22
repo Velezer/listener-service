@@ -1,21 +1,22 @@
 package com.listener
 
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
 
-object ApiClient {
+class ApiClient(
+    private val callFactory: Call.Factory = OkHttpClient()
+) {
 
-    private val client = OkHttpClient()
-
-    fun fetchWsUrl(apiUrl: String): String? {
+    fun fetchWsUrl(apiUrl: String): String {
         val request = Request.Builder()
             .url(apiUrl)
             .get()
             .build()
 
-        client.newCall(request).execute().use { response ->
+        callFactory.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException("Unexpected code $response")
             }
@@ -25,5 +26,11 @@ object ApiClient {
 
             return json.getString("WS_FEEDER_SERVICE")
         }
+    }
+
+    companion object {
+        private val defaultClient = ApiClient()
+
+        fun fetchWsUrl(apiUrl: String): String = defaultClient.fetchWsUrl(apiUrl)
     }
 }
