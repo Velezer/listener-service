@@ -1,4 +1,4 @@
-use jni::objects::{JClass, JObject, JString, JValue};
+use jni::objects::{GlobalRef, JClass, JObject, JString, JValue};
 use jni::{JavaVM, JNIEnv};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::runtime::Builder;
@@ -10,7 +10,7 @@ static STOP: AtomicBool = AtomicBool::new(false);
 const BUFFER_SIZE: usize = 128;
 
 /// Call a static void method on WsService with a single String argument.
-fn call_kotlin(vm: &JavaVM, method: &str, msg: &str) {
+fn call_kotlin(vm: &JavaVM, ws_service_class: &GlobalRef, method: &str, msg: &str) {
     let mut env = match vm.attach_current_thread() {
         Ok(env) => env,
         Err(_) => return,
@@ -21,13 +21,10 @@ fn call_kotlin(vm: &JavaVM, method: &str, msg: &str) {
         Err(_) => return,
     };
 
-    let class = match env.find_class("com/listener/WsService") {
-        Ok(c) => c,
-        Err(_) => return,
-    };
+    let ws_service_class_ref: &JClass = ws_service_class.as_obj().into();
 
     let _ = env.call_static_method(
-        class,
+        ws_service_class_ref,
         method,
         "(Ljava/lang/String;)V",
         &[JValue::Object(&JObject::from(jmsg))],
@@ -42,9 +39,10 @@ pub extern "system" fn Java_com_listener_WsService_startWs(
 ) {
     let url: String = env.get_string(&url).unwrap().into();
     let vm = env.get_java_vm().unwrap();
+    let ws_service_class = env.new_global_ref(_class).unwrap();
 
     STOP.store(false, Ordering::Relaxed);
-    call_kotlin(&vm, "onWsStarted", "WebSocket listener started");
+    call_kotlin(&vm, &ws_service_class, "onWsStarted", "WebSocket listener started");
 
     let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
@@ -54,12 +52,17 @@ pub extern "system" fn Java_com_listener_WsService_startWs(
 
         while !STOP.load(Ordering::Relaxed) {
             attempt += 1;
-            call_kotlin(&vm, "onWsConnecting", &format!("Connecting (attempt {})...", attempt));
+            call_kotlin(
+                &vm,
+                &ws_service_class,
+                "onWsConnecting",
+                &format!("Connecting (attempt {})...", attempt),
+            );
 
             match connect_async(&url).await {
                 Ok((mut ws_stream, _)) => {
                     attempt = 0;
-                    call_kotlin(&vm, "onWsConnected", &url);
+                    call_kotlin(&vm, &ws_service_class, "onWsConnected", &url);
 
                     while let Some(msg) = ws_stream.next().await {
                         if STOP.load(Ordering::Relaxed) {
@@ -78,17 +81,27 @@ pub extern "system" fn Java_com_listener_WsService_startWs(
                                         .unwrap_or("")
                                         .to_string()
                                 } else if m.is_close() {
-                                    call_kotlin(&vm, "onWsDisconnected", "Server closed connection");
+                                    call_kotlin(
+                                        &vm,
+                                        &ws_service_class,
+                                        "onWsDisconnected",
+                                        "Server closed connection",
+                                    );
                                     break;
                                 } else {
                                     continue;
                                 };
 
-                                let truncated = &text[..text.len().min(BUFFER_SIZE)];
-                                call_kotlin(&vm, "onWsMessage", truncated);
+                                let truncated: String = text.chars().take(BUFFER_SIZE).collect();
+                                call_kotlin(&vm, &ws_service_class, "onWsMessage", &truncated);
                             }
                             Err(e) => {
-                                call_kotlin(&vm, "onWsError", &format!("Read error: {}", e));
+                                call_kotlin(
+                                    &vm,
+                                    &ws_service_class,
+                                    "onWsError",
+                                    &format!("Read error: {}", e),
+                                );
                                 break;
                             }
                         }
@@ -96,17 +109,22 @@ pub extern "system" fn Java_com_listener_WsService_startWs(
 
                     // Stream ended without an explicit close frame
                     if !STOP.load(Ordering::Relaxed) {
-                        call_kotlin(&vm, "onWsDisconnected", "Connection lost");
+                        call_kotlin(&vm, &ws_service_class, "onWsDisconnected", "Connection lost");
                     }
                 }
                 Err(e) => {
-                    call_kotlin(&vm, "onWsError", &format!("Connect failed: {}", e));
+                    call_kotlin(
+                        &vm,
+                        &ws_service_class,
+                        "onWsError",
+                        &format!("Connect failed: {}", e),
+                    );
                     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 }
             }
         }
 
-        call_kotlin(&vm, "onWsStopped", "Service stopped");
+        call_kotlin(&vm, &ws_service_class, "onWsStopped", "Service stopped");
     });
 }
 
