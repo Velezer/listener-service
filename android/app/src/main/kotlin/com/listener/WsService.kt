@@ -102,13 +102,37 @@ class WsService : Service() {
         updateForeground("Fetching WS URL...")
 
         serviceScope.launch {
+            withContext(Dispatchers.Main) {
+                handleEvent(
+                    title = "Running",
+                    detail = "Reached serviceScope.launch",
+                    icon = android.R.drawable.ic_popup_sync
+                )
+            }
+
             try {
                 val wsUrl = ApiClient.fetchWsUrl(API_URL)
 
                 if (wsUrl != null) {
+                    withContext(Dispatchers.Main) {
+                        handleEvent(
+                            title = "Running",
+                            detail = "Starting WebSocket listener",
+                            icon = android.R.drawable.ic_popup_sync
+                        )
+                    }
+
                     // Rust loop handles connect/reconnect; lifecycle events
                     // are pushed back via the static JNI callbacks above.
                     startWs(wsUrl)
+
+                    withContext(Dispatchers.Main) {
+                        handleEvent(
+                            title = "Stopped",
+                            detail = "WebSocket listener exited",
+                            icon = android.R.drawable.ic_media_pause
+                        )
+                    }
                 } else {
                     withContext(Dispatchers.Main) {
                         updateForeground("Failed to get WS URL")
@@ -167,6 +191,8 @@ class WsService : Service() {
         stopWs()
         serviceScope.cancel()
         instance = null
+
+
         super.onDestroy()
     }
 }
