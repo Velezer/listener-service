@@ -10,6 +10,8 @@ import java.lang.ref.WeakReference
 class WsService : Service() {
 
     companion object {
+        const val ACTION_STOP = "com.listener.action.STOP"
+
         private const val API_URL = "https://context-service-production-722e.up.railway.app/context"
         private const val CHANNEL_ID = "ws_channel"
         private const val FOREGROUND_NOTIFICATION_ID = 1
@@ -99,16 +101,45 @@ class WsService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         updateForeground("Fetching WS URL...")
 
         serviceScope.launch {
+            withContext(Dispatchers.Main) {
+                handleEvent(
+                    title = "Running",
+                    detail = "Reached serviceScope.launch",
+                    icon = android.R.drawable.ic_popup_sync
+                )
+            }
+
             try {
                 val wsUrl = ApiClient.fetchWsUrl(API_URL)
 
                 if (wsUrl != null) {
+                    withContext(Dispatchers.Main) {
+                        handleEvent(
+                            title = "Running",
+                            detail = "Starting WebSocket listener",
+                            icon = android.R.drawable.ic_popup_sync
+                        )
+                    }
+
                     // Rust loop handles connect/reconnect; lifecycle events
                     // are pushed back via the static JNI callbacks above.
                     startWs(wsUrl)
+
+                    withContext(Dispatchers.Main) {
+                        handleEvent(
+                            title = "Stopped",
+                            detail = "WebSocket listener exited",
+                            icon = android.R.drawable.ic_media_pause
+                        )
+                    }
                 } else {
                     withContext(Dispatchers.Main) {
                         updateForeground("Failed to get WS URL")
@@ -167,6 +198,8 @@ class WsService : Service() {
         stopWs()
         serviceScope.cancel()
         instance = null
+
+
         super.onDestroy()
     }
 }
