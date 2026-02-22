@@ -22,7 +22,10 @@ class WsService : Service() {
             System.loadLibrary("rust_core")
         }
 
+        @JvmStatic
         external fun startWs(url: String)
+
+        @JvmStatic
         external fun stopWs()
 
         private enum class WsEvent(
