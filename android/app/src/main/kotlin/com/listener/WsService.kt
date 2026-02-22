@@ -10,8 +10,6 @@ import java.lang.ref.WeakReference
 class WsService : Service() {
 
     companion object {
-        const val ACTION_STOP = "com.listener.action.STOP"
-
         private const val API_URL = "https://context-service-production-722e.up.railway.app/context"
         private const val CHANNEL_ID = "ws_channel"
         private const val FOREGROUND_NOTIFICATION_ID = 1
@@ -101,11 +99,6 @@ class WsService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
         updateForeground("Fetching WS URL...")
 
         serviceScope.launch {
