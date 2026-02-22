@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,5 +40,19 @@ class ApiClientE2ETest {
         val result = ApiClient.fetchWsUrl(apiUrl)
 
         assertEquals(expectedWsUrl, result)
+    }
+
+    @Test
+    fun fetchWsUrl_returnsNullWhenBodyIsEmpty() {
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+        )
+
+        val apiUrl = mockWebServer.url("/context").toString()
+
+        val result = ApiClient.fetchWsUrl(apiUrl)
+
+        assertNull(result)
     }
 }
