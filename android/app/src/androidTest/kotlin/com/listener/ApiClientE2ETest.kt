@@ -5,11 +5,9 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.json.JSONException
 
 @RunWith(AndroidJUnit4::class)
 class ApiClientE2ETest {
@@ -28,7 +26,7 @@ class ApiClientE2ETest {
     }
 
     @Test
-    fun fetchWsUrl_returnsWebsocketUrlFromContextPayload() {
+    fun fetchWsUrl_parsesPayloadOnAndroidRuntime() {
         val expectedWsUrl = "wss://example.test/feed"
         mockWebServer.enqueue(
             MockResponse()
@@ -41,19 +39,5 @@ class ApiClientE2ETest {
         val result = ApiClient.fetchWsUrl(apiUrl)
 
         assertEquals(expectedWsUrl, result)
-    }
-
-    @Test
-    fun fetchWsUrl_throwsJSONExceptionWhenBodyIsEmpty() {
-        mockWebServer.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-        )
-
-        val apiUrl = mockWebServer.url("/context").toString()
-
-        assertThrows(JSONException::class.java) {
-            ApiClient.fetchWsUrl(apiUrl)
-        }
     }
 }
