@@ -1,10 +1,6 @@
 name: Android E2E
 
 on:
-  push:
-    paths:
-      - 'android/**'
-      - '.github/workflows/android-e2e.yml'
   pull_request:
     paths:
       - 'android/**'
