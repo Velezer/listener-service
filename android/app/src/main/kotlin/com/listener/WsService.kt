@@ -10,6 +10,7 @@ import java.lang.ref.WeakReference
 class WsService : Service() {
 
     companion object {
+        private const val API_URL = "https://context-service-production-722e.up.railway.app/context"
         private const val CHANNEL_ID = "ws_channel"
         private const val FOREGROUND_NOTIFICATION_ID = 1
         private const val EVENT_NOTIFICATION_ID = 2
@@ -24,36 +25,52 @@ class WsService : Service() {
         external fun startWs(url: String)
         external fun stopWs()
 
+        private enum class WsEvent(
+            val title: String,
+            val icon: Int
+        ) {
+            CONNECTING("Connecting", android.R.drawable.ic_popup_sync),
+            CONNECTED("Connected", android.R.drawable.ic_dialog_info),
+            MESSAGE("Message", android.R.drawable.ic_dialog_email),
+            DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert),
+            ERROR("Error", android.R.drawable.ic_delete),
+            STOPPED("Stopped", android.R.drawable.ic_media_pause)
+        }
+
         // --- JNI callbacks (called from Rust, must be @JvmStatic) ---
+
+        private fun dispatchEvent(event: WsEvent, msg: String) {
+            instance?.get()?.handleEvent(event.title, msg, event.icon)
+        }
 
         @JvmStatic
         fun onWsConnecting(msg: String) {
-            instance?.get()?.handleEvent("Connecting", msg, android.R.drawable.ic_popup_sync)
+            dispatchEvent(WsEvent.CONNECTING, msg)
         }
 
         @JvmStatic
         fun onWsConnected(msg: String) {
-            instance?.get()?.handleEvent("Connected", msg, android.R.drawable.ic_dialog_info)
+            dispatchEvent(WsEvent.CONNECTED, msg)
         }
 
         @JvmStatic
         fun onWsMessage(msg: String) {
-            instance?.get()?.handleEvent("Message", msg, android.R.drawable.ic_dialog_email)
+            dispatchEvent(WsEvent.MESSAGE, msg)
         }
 
         @JvmStatic
         fun onWsDisconnected(msg: String) {
-            instance?.get()?.handleEvent("Disconnected", msg, android.R.drawable.ic_dialog_alert)
+            dispatchEvent(WsEvent.DISCONNECTED, msg)
         }
 
         @JvmStatic
         fun onWsError(msg: String) {
-            instance?.get()?.handleEvent("Error", msg, android.R.drawable.ic_delete)
+            dispatchEvent(WsEvent.ERROR, msg)
         }
 
         @JvmStatic
         fun onWsStopped(msg: String) {
-            instance?.get()?.handleEvent("Stopped", msg, android.R.drawable.ic_media_pause)
+            dispatchEvent(WsEvent.STOPPED, msg)
         }
     }
 
@@ -86,9 +103,7 @@ class WsService : Service() {
 
         serviceScope.launch {
             try {
-                val apiUrl =
-                    "https://context-service-production-722e.up.railway.app/context"
-                val wsUrl = ApiClient.fetchWsUrl(apiUrl)
+                val wsUrl = ApiClient.fetchWsUrl(API_URL)
 
                 if (wsUrl != null) {
                     // Rust loop handles connect/reconnect; lifecycle events
