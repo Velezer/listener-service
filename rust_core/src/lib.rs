@@ -44,6 +44,7 @@ pub extern "system" fn Java_com_listener_WsService_startWs(
     let vm = env.get_java_vm().unwrap();
 
     STOP.store(false, Ordering::Relaxed);
+    call_kotlin(&vm, "onWsStarted", "WebSocket listener started");
 
     let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
