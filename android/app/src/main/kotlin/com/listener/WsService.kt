@@ -29,6 +29,7 @@ class WsService : Service() {
             val title: String,
             val icon: Int
         ) {
+            STARTED("Started", android.R.drawable.ic_media_play),
             CONNECTING("Connecting", android.R.drawable.ic_popup_sync),
             CONNECTED("Connected", android.R.drawable.ic_dialog_info),
             MESSAGE("Message", android.R.drawable.ic_dialog_email),
@@ -41,6 +42,11 @@ class WsService : Service() {
 
         private fun dispatchEvent(event: WsEvent, msg: String) {
             instance?.get()?.handleEvent(event.title, msg, event.icon)
+        }
+
+        @JvmStatic
+        fun onWsStarted(msg: String) {
+            dispatchEvent(WsEvent.STARTED, msg)
         }
 
         @JvmStatic
