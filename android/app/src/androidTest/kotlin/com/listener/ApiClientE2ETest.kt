@@ -5,10 +5,11 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONException
 
 @RunWith(AndroidJUnit4::class)
 class ApiClientE2ETest {
@@ -43,7 +44,7 @@ class ApiClientE2ETest {
     }
 
     @Test
-    fun fetchWsUrl_returnsNullWhenBodyIsEmpty() {
+    fun fetchWsUrl_throwsJSONExceptionWhenBodyIsEmpty() {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -51,8 +52,8 @@ class ApiClientE2ETest {
 
         val apiUrl = mockWebServer.url("/context").toString()
 
-        val result = ApiClient.fetchWsUrl(apiUrl)
-
-        assertNull(result)
+        assertThrows(JSONException::class.java) {
+            ApiClient.fetchWsUrl(apiUrl)
+        }
     }
 }
