@@ -42,8 +42,8 @@ class WsService : Service() {
             CONNECTING("Connecting", android.R.drawable.ic_popup_sync, "Connecting…", false),
             CONNECTED("Connected", android.R.drawable.ic_dialog_info, "Connected", false),
             MESSAGE("Message", android.R.drawable.ic_dialog_email, "Connected", true),
-            DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert, "Disconnected", true),
-            ERROR("Error", android.R.drawable.ic_delete, "Connection error", true),
+            DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert, "Disconnected", false),
+            ERROR("Error", android.R.drawable.ic_delete, "Connection error", false),
             STOPPED("Stopped", android.R.drawable.ic_media_pause, "Stopped", true)
         }
 
