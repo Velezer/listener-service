@@ -30,21 +30,23 @@ class WsService : Service() {
 
         private enum class WsEvent(
             val title: String,
-            val icon: Int
+            val icon: Int,
+            val foregroundStatus: String,
+            val notifyUser: Boolean
         ) {
-            STARTED("Started", android.R.drawable.ic_media_play),
-            CONNECTING("Connecting", android.R.drawable.ic_popup_sync),
-            CONNECTED("Connected", android.R.drawable.ic_dialog_info),
-            MESSAGE("Message", android.R.drawable.ic_dialog_email),
-            DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert),
-            ERROR("Error", android.R.drawable.ic_delete),
-            STOPPED("Stopped", android.R.drawable.ic_media_pause)
+            STARTED("Started", android.R.drawable.ic_media_play, "Starting listener", false),
+            CONNECTING("Connecting", android.R.drawable.ic_popup_sync, "Connecting…", false),
+            CONNECTED("Connected", android.R.drawable.ic_dialog_info, "Connected", false),
+            MESSAGE("Message", android.R.drawable.ic_dialog_email, "Connected", true),
+            DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert, "Disconnected", true),
+            ERROR("Error", android.R.drawable.ic_delete, "Connection error", true),
+            STOPPED("Stopped", android.R.drawable.ic_media_pause, "Stopped", true)
         }
 
         // --- JNI callbacks (called from Rust, must be @JvmStatic) ---
 
         private fun dispatchEvent(event: WsEvent, msg: String) {
-            instance?.get()?.handleEvent(event.title, msg, event.icon)
+            instance?.get()?.handleEvent(event, msg)
         }
 
         @JvmStatic
@@ -102,6 +104,7 @@ class WsService : Service() {
             .setContentText("Service starting...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
 
         startForeground(FOREGROUND_NOTIFICATION_ID, foregroundBuilder.build())
@@ -112,11 +115,7 @@ class WsService : Service() {
 
         serviceScope.launch {
             withContext(Dispatchers.Main) {
-                handleEvent(
-                    title = "Running",
-                    detail = "Reached serviceScope.launch",
-                    icon = android.R.drawable.ic_popup_sync
-                )
+                updateForeground("Starting listener")
             }
 
             try {
@@ -124,11 +123,7 @@ class WsService : Service() {
 
                 if (wsUrl != null) {
                     withContext(Dispatchers.Main) {
-                        handleEvent(
-                            title = "Running",
-                            detail = "Starting WebSocket listener",
-                            icon = android.R.drawable.ic_popup_sync
-                        )
+                        updateForeground("Starting WebSocket listener")
                     }
 
                     // Rust loop handles connect/reconnect; lifecycle events
@@ -136,11 +131,12 @@ class WsService : Service() {
                     startWs(wsUrl)
 
                     withContext(Dispatchers.Main) {
-                        handleEvent(
+                        postEventNotification(
                             title = "Stopped",
                             detail = "WebSocket listener exited",
                             icon = android.R.drawable.ic_media_pause
                         )
+                        updateForeground("Stopped")
                     }
                 } else {
                     withContext(Dispatchers.Main) {
@@ -170,12 +166,15 @@ class WsService : Service() {
 
     /**
      * Central handler for all WS lifecycle events.
-     * Updates the foreground notification status and posts a separate
-     * heads-up notification so the user sees every event.
+     * Keeps the foreground notification concise and posts a separate
+     * notification only for user-relevant events.
      */
-    private fun handleEvent(title: String, detail: String, icon: Int) {
-        updateForeground("$title: $detail")
-        postEventNotification(title, detail, icon)
+    private fun handleEvent(event: WsEvent, detail: String) {
+        updateForeground(event.foregroundStatus)
+
+        if (event.notifyUser) {
+            postEventNotification(event.title, detail, event.icon)
+        }
     }
 
     private fun updateForeground(msg: String) {
@@ -184,9 +183,12 @@ class WsService : Service() {
     }
 
     private fun postEventNotification(title: String, detail: String, icon: Int) {
+        val preview = detail.take(120)
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("WS $title")
-            .setContentText(detail)
+            .setContentText(preview)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
             .setSmallIcon(icon)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
