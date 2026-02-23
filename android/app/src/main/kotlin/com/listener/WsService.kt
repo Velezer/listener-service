@@ -5,15 +5,19 @@ import android.content.Intent
 import android.os.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
+import java.util.concurrent.atomic.AtomicInteger
 import java.lang.ref.WeakReference
 
 class WsService : Service() {
 
     companion object {
         private const val API_URL = "https://context-service-production-722e.up.railway.app/context"
-        private const val CHANNEL_ID = "ws_channel"
+        private const val FOREGROUND_CHANNEL_ID = "ws_foreground_channel"
+        private const val EVENT_CHANNEL_ID = "ws_event_channel"
         private const val FOREGROUND_NOTIFICATION_ID = 1
-        private const val EVENT_NOTIFICATION_ID = 2
+        private val EVENT_NOTIFICATION_ID = AtomicInteger(2)
+        private const val MAX_NOTIFICATION_PREVIEW = 160
+        private val callbackHandler = Handler(Looper.getMainLooper())
 
         @Volatile
         private var instance: WeakReference<WsService>? = null
@@ -46,7 +50,10 @@ class WsService : Service() {
         // --- JNI callbacks (called from Rust, must be @JvmStatic) ---
 
         private fun dispatchEvent(event: WsEvent, msg: String) {
-            instance?.get()?.handleEvent(event, msg)
+            val service = instance?.get() ?: return
+            callbackHandler.post {
+                service.handleEvent(event, msg)
+            }
         }
 
         @JvmStatic
@@ -87,7 +94,6 @@ class WsService : Service() {
 
     private lateinit var notificationManager: NotificationManager
     private lateinit var foregroundBuilder: NotificationCompat.Builder
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -99,7 +105,7 @@ class WsService : Service() {
         notificationManager = getSystemService(NotificationManager::class.java)
         createNotificationChannel()
 
-        foregroundBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
+        foregroundBuilder = NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
             .setContentTitle("WS Listener")
             .setContentText("Service starting...")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -155,12 +161,21 @@ class WsService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "WS Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT
+            val foregroundChannel = NotificationChannel(
+                FOREGROUND_CHANNEL_ID,
+                "WS Foreground Service",
+                NotificationManager.IMPORTANCE_LOW
             )
-            notificationManager.createNotificationChannel(channel)
+
+            val eventChannel = NotificationChannel(
+                EVENT_CHANNEL_ID,
+                "WS Events",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            eventChannel.enableVibration(true)
+
+            notificationManager.createNotificationChannel(foregroundChannel)
+            notificationManager.createNotificationChannel(eventChannel)
         }
     }
 
@@ -169,8 +184,15 @@ class WsService : Service() {
      * Keeps the foreground notification concise and posts a separate
      * notification only for user-relevant events.
      */
+    private var receivedMessageCount = 0
+
     private fun handleEvent(event: WsEvent, detail: String) {
-        updateForeground(event.foregroundStatus)
+        if (event == WsEvent.MESSAGE) {
+            receivedMessageCount += 1
+            updateForeground("Connected • messages: $receivedMessageCount")
+        } else {
+            updateForeground(event.foregroundStatus)
+        }
 
         if (event.notifyUser) {
             postEventNotification(event.title, detail, event.icon)
@@ -183,24 +205,25 @@ class WsService : Service() {
     }
 
     private fun postEventNotification(title: String, detail: String, icon: Int) {
-        val preview = detail.take(120)
+        val preview = detail.take(MAX_NOTIFICATION_PREVIEW)
 
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, EVENT_CHANNEL_ID)
             .setContentTitle("WS $title")
             .setContentText(preview)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
             .setSmallIcon(icon)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(EVENT_NOTIFICATION_ID, notification)
+        notificationManager.notify(EVENT_NOTIFICATION_ID.getAndIncrement(), notification)
     }
 
     override fun onDestroy() {
         updateForeground("Service destroyed")
         stopWs()
         serviceScope.cancel()
+        callbackHandler.removeCallbacksAndMessages(null)
         instance = null
 
 

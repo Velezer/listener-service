@@ -7,7 +7,7 @@ use tokio_tungstenite::connect_async;
 
 static STOP: AtomicBool = AtomicBool::new(false);
 
-const BUFFER_SIZE: usize = 128;
+const BUFFER_SIZE: usize = 64;
 const RECONNECT_DELAY_SECONDS: u64 = 3;
 
 /// Call a static void method on WsService with a single String argument.
