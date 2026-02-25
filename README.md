@@ -15,3 +15,4 @@ Run instrumentation tests when you need Android runtime/device integration cover
 cd android
 ./gradlew connectedAndroidTest
 ```
+
