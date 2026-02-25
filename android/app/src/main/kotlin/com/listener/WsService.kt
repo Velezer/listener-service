@@ -126,7 +126,7 @@ class WsService : Service() {
 
             try {
                 // val wsUrl = ApiClient.fetchWsUrl(API_URL)
-                val wsUrl = "wss://https://feeder-service.onrender.com/aggTrade"
+                val wsUrl = "wss://feeder-service.onrender.com/aggTrade"
 
                 if (wsUrl != null) {
                     withContext(Dispatchers.Main) {
