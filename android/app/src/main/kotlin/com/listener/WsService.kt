@@ -57,7 +57,7 @@ class WsService : Service() {
         handleEvent(WsEvent.CONNECTING)
 
         val request = Request.Builder()
-            .url("wss://your-websocket-url") // keep your real URL
+            .url("wss://feeder-service.onrender.com/aggTrade") // keep your real URL
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
