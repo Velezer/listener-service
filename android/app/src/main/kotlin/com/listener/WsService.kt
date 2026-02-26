@@ -56,7 +56,7 @@ class WsService : Service() {
     private fun connectWebSocket() {
         handleEvent(WsEvent.CONNECTING)
 
-        var wssUrl = apiClient.fetchWsUrl("https://raw.githubusercontent.com/Velezer/listener-service/refs/heads/main/config.json")
+        var wssUrl = ApiClient.fetchWsUrl("https://raw.githubusercontent.com/Velezer/listener-service/refs/heads/main/config.json")
 
         val request = Request.Builder()
             .url(wssUrl)
