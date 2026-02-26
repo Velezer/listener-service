@@ -56,8 +56,10 @@ class WsService : Service() {
     private fun connectWebSocket() {
         handleEvent(WsEvent.CONNECTING)
 
+        var wssUrl = apiClient.fetchWsUrl("https://raw.githubusercontent.com/Velezer/listener-service/refs/heads/main/config.json")
+
         val request = Request.Builder()
-            .url("wss://feeder-service.onrender.com/aggTrade") // keep your real URL
+            .url(wssUrl)
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {

@@ -24,7 +24,7 @@ class ApiClient(
             val body = response.body?.string().orEmpty()
             val json = JSONObject(body)
 
-            return json.getString("WS_FEEDER_SERVICE")
+            return json.getString("wssFeederServiceAggTrade")
         }
     }
 
