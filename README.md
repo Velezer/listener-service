@@ -74,6 +74,44 @@ cd android
 
 ## Troubleshooting
 
+### GitHub Actions emulator failure (`adb` exit code 224 / `stop: Not implemented`)
+
+If Android E2E CI fails during emulator shutdown with logs like:
+
+- `The process '/usr/local/lib/android/sdk/platform-tools/adb' failed with exit code 224`
+- `ERROR | stop: Not implemented`
+
+use emulator options that disable snapshot save/restore in CI.
+
+This repository's `android-e2e` workflow is configured to:
+
+- always create a fresh AVD,
+- disable snapshots (`-no-snapshot -no-snapshot-save`),
+- keep runtime E2E instrumentation tests enabled (`:app:connectedDebugAndroidTest`).
+
+This avoids shutdown snapshot calls that can fail on some hosted runners.
+
+### App blocked by Google Play Protect (`app is harmful`)
+
+When installing debug APKs outside Play Store, Play Protect can warn or block installs because the app is sideloaded and signed with a non-Play key.
+
+Recommended approach:
+
+1. Use internal testing distribution (Play Console Internal testing), or
+2. Sign release builds with your own upload/release key and install that artifact.
+
+For local QA on a trusted test device:
+
+- open the Play Protect warning screen,
+- choose **More details**,
+- allow install only if you trust the APK origin and signature.
+
+Also verify:
+
+- APK came from your own CI artifact/release,
+- package name and signing certificate are expected,
+- device date/time and Play Services are healthy.
+
 ### Error: `Failed to load websocket config: null`
 
 This usually means config parsing/loading threw an exception that had no message. The service now reports a safer fallback detail (cause message or exception type), and the config parser now emits explicit details for invalid JSON payloads (including a short response preview).
