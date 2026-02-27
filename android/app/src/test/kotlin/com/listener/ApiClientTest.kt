@@ -3,7 +3,6 @@ package com.listener
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import org.json.JSONException
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -45,7 +44,7 @@ class ApiClientTest {
     }
 
     @Test
-    fun fetchWsUrl_throwsJSONExceptionWhenBodyIsEmpty() {
+    fun fetchWsUrl_throwsIOExceptionWhenBodyIsNotJson() {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -53,9 +52,11 @@ class ApiClientTest {
 
         val apiUrl = mockWebServer.url("/context").toString()
 
-        assertThrows(JSONException::class.java) {
+        val error = assertThrows(IOException::class.java) {
             apiClient.fetchWsUrl(apiUrl)
         }
+
+        assertEquals(true, error.message?.contains("Invalid JSON payload") == true)
     }
 
     @Test

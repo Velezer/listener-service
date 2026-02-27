@@ -4,6 +4,7 @@ import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 
@@ -28,7 +29,20 @@ class ApiClient(
             }
 
             val body = response.body?.string().orEmpty()
-            val json = JSONObject(body)
+
+            val json = try {
+                JSONObject(body)
+            } catch (e: JSONException) {
+                val preview = body
+                    .replace("\n", " ")
+                    .replace("\r", " ")
+                    .take(160)
+                    .ifBlank { "<empty>" }
+                throw IOException(
+                    "Invalid JSON payload in config response from $apiUrl. Body preview: $preview",
+                    e
+                )
+            }
 
             val wsUrl = supportedConfigKeys
                 .asSequence()
