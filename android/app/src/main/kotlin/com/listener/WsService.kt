@@ -14,6 +14,8 @@ class WsService : Service() {
     companion object {
         private const val CHANNEL_ID = "ws_service_channel"
         private const val FOREGROUND_ID = 1
+        private const val DEFAULT_CONFIG_URL =
+            "https://raw.githubusercontent.com/Velezer/listener-service/main/config.json"
     }
 
     private lateinit var notificationManager: NotificationManager
@@ -56,7 +58,13 @@ class WsService : Service() {
     private fun connectWebSocket() {
         handleEvent(WsEvent.CONNECTING)
 
-        var wssUrl = ApiClient.fetchWsUrl("https://raw.githubusercontent.com/Velezer/listener-service/refs/heads/main/config.json")
+        val wssUrl = try {
+            ApiClient.fetchWsUrl(DEFAULT_CONFIG_URL)
+        } catch (t: Throwable) {
+            handleEvent(WsEvent.ERROR, "Failed to load websocket config: ${t.message}")
+            stopSelf()
+            return
+        }
 
         val request = Request.Builder()
             .url(wssUrl)
