@@ -61,7 +61,7 @@ class WsService : Service() {
         val wssUrl = try {
             ApiClient.fetchWsUrl(DEFAULT_CONFIG_URL)
         } catch (t: Throwable) {
-            handleEvent(WsEvent.ERROR, "Failed to load websocket config: ${t.message}")
+            handleEvent(WsEvent.ERROR, "Failed to load websocket config: ${formatThrowable(t)}")
             stopSelf()
             return
         }
@@ -147,5 +147,11 @@ class WsService : Service() {
             )
             notificationManager.createNotificationChannel(channel)
         }
+    }
+
+    private fun formatThrowable(t: Throwable): String {
+        return t.message?.takeIf { it.isNotBlank() }
+            ?: t.cause?.message?.takeIf { it.isNotBlank() }
+            ?: t::class.java.simpleName
     }
 }
