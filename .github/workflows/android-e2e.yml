@@ -5,6 +5,11 @@ on:
     paths:
       - 'android/**'
       - '.github/workflows/android-e2e.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-e2e.yml'
 
 jobs:
   connected-android-test:
@@ -33,6 +38,14 @@ jobs:
           api-level: 34
           arch: x86_64
           profile: pixel_7
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          emulator-options: >-
+            -no-window
+            -noaudio
+            -no-boot-anim
+            -no-snapshot
+            -no-snapshot-save
+            -gpu swiftshader_indirect
           disable-animations: true
           script: cd android && ./gradlew :app:connectedDebugAndroidTest
