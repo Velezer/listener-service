@@ -54,6 +54,15 @@ Optional: test a different config URL:
 bash tests/e2e_raw_github_config.sh "https://raw.githubusercontent.com/<owner>/<repo>/<branch>/config.json"
 ```
 
+### Android runtime E2E test (live config, no mocks)
+
+This instrumentation test runs on emulator/device and calls the live hosted config URL:
+
+```bash
+cd android
+./gradlew :app:connectedDebugAndroidTest
+```
+
 ### Unit tests
 
 ```bash

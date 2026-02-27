@@ -3,10 +3,10 @@ package com.listener
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
+import java.net.URI
 
 class ApiClient(
     private val callFactory: Call.Factory = OkHttpClient()
@@ -50,11 +50,19 @@ class ApiClient(
                 .firstOrNull { it.isNotEmpty() }
                 ?: throw IOException("Missing websocket URL in config. Supported keys: $supportedConfigKeys")
 
-            val parsedUrl = wsUrl.toHttpUrlOrNull()
-                ?: throw IOException("Invalid websocket URL in config: $wsUrl")
+            val parsedUri = try {
+                URI(wsUrl)
+            } catch (e: Exception) {
+                throw IOException("Invalid websocket URL in config: $wsUrl", e)
+            }
 
-            if (parsedUrl.scheme != "ws" && parsedUrl.scheme != "wss") {
+            val scheme = parsedUri.scheme?.lowercase()
+            if (scheme != "ws" && scheme != "wss") {
                 throw IOException("Websocket URL must use ws or wss scheme: $wsUrl")
+            }
+
+            if (parsedUri.host.isNullOrBlank()) {
+                throw IOException("Websocket URL must include a host: $wsUrl")
             }
 
             return wsUrl
