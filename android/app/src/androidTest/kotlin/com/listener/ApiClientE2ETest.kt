@@ -31,7 +31,7 @@ class ApiClientE2ETest {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
-                .setBody("{\"WS_FEEDER_SERVICE\":\"$expectedWsUrl\"}")
+                .setBody("{\"wssFeederServiceAggTrade\":\"$expectedWsUrl\"}")
         )
 
         val apiUrl = mockWebServer.url("/context").toString()

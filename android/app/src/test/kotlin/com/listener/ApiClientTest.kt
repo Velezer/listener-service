@@ -34,7 +34,7 @@ class ApiClientTest {
         mockWebServer.enqueue(
             MockResponse()
                 .setResponseCode(200)
-                .setBody("{\"WS_FEEDER_SERVICE\":\"$expectedWsUrl\"}")
+                .setBody("{\"wssFeederServiceAggTrade\":\"$expectedWsUrl\"}")
         )
 
         val apiUrl = mockWebServer.url("/context").toString()
@@ -56,6 +56,22 @@ class ApiClientTest {
         assertThrows(JSONException::class.java) {
             apiClient.fetchWsUrl(apiUrl)
         }
+    }
+
+    @Test
+    fun fetchWsUrl_supportsLegacyWsKey() {
+        val expectedWsUrl = "wss://example.test/legacy"
+        mockWebServer.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("{\"WS_FEEDER_SERVICE\":\"$expectedWsUrl\"}")
+        )
+
+        val apiUrl = mockWebServer.url("/context").toString()
+
+        val result = apiClient.fetchWsUrl(apiUrl)
+
+        assertEquals(expectedWsUrl, result)
     }
 
     @Test
