@@ -16,4 +16,16 @@ class ApiClientE2ETest {
 
         assertTrue("Expected ws:// or wss:// URL, got: $result", result.startsWith("ws://") || result.startsWith("wss://"))
     }
+
+    @Test
+    fun fetchWsUrl_liveConfigContainsNonEmptyHostAndPath() {
+        val configUrl = "https://raw.githubusercontent.com/Velezer/listener-service/main/config.json"
+
+        val result = ApiClient.fetchWsUrl(configUrl)
+
+        val uri = java.net.URI(result)
+        assertTrue("Expected non-empty host in websocket URL: $result", !uri.host.isNullOrBlank())
+        assertTrue("Expected websocket URL path to be present: $result", uri.path.isNotBlank())
+    }
+
 }

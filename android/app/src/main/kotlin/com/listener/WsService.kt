@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import okhttp3.*
 import okio.ByteString
@@ -20,6 +22,7 @@ class WsService : Service() {
 
     private lateinit var notificationManager: NotificationManager
     private var webSocket: WebSocket? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val client = OkHttpClient()
 
     private enum class WsEvent(
@@ -58,41 +61,43 @@ class WsService : Service() {
     private fun connectWebSocket() {
         handleEvent(WsEvent.CONNECTING)
 
-        val wssUrl = try {
-            ApiClient.fetchWsUrl(DEFAULT_CONFIG_URL)
-        } catch (t: Throwable) {
-            handleEvent(WsEvent.ERROR, "Failed to load websocket config: ${formatThrowable(t)}")
-            stopSelf()
-            return
-        }
-
-        val request = Request.Builder()
-            .url(wssUrl)
-            .build()
-
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                handleEvent(WsEvent.CONNECTED)
+        Thread {
+            val wssUrl = try {
+                ApiClient.fetchWsUrl(DEFAULT_CONFIG_URL)
+            } catch (t: Throwable) {
+                handleEvent(WsEvent.ERROR, "Failed to load websocket config: ${formatThrowable(t)}")
+                mainHandler.post { stopSelf() }
+                return@Thread
             }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                handleEvent(WsEvent.MESSAGE, text)
-            }
+            val request = Request.Builder()
+                .url(wssUrl)
+                .build()
 
-            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                handleEvent(WsEvent.MESSAGE, bytes.utf8())
-            }
+            webSocket = client.newWebSocket(request, object : WebSocketListener() {
 
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                handleEvent(WsEvent.DISCONNECTED, reason)
-                webSocket.close(code, reason)
-            }
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    handleEvent(WsEvent.CONNECTED)
+                }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                handleEvent(WsEvent.ERROR, t.message ?: "Unknown error")
-            }
-        })
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    handleEvent(WsEvent.MESSAGE, text)
+                }
+
+                override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                    handleEvent(WsEvent.MESSAGE, bytes.utf8())
+                }
+
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    handleEvent(WsEvent.DISCONNECTED, reason)
+                    webSocket.close(code, reason)
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    handleEvent(WsEvent.ERROR, formatThrowable(t))
+                }
+            })
+        }.start()
     }
 
     private fun handleEvent(event: WsEvent, message: String? = null) {
@@ -120,9 +125,11 @@ class WsService : Service() {
     }
 
     private fun postEventNotification(event: WsEvent, message: String?) {
+        val detailedMessage = message ?: event.foregroundStatus
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(event.title)
-            .setContentText(message ?: event.foregroundStatus)
+            .setContentText(detailedMessage)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(detailedMessage))
             .setSmallIcon(event.icon)
             .setAutoCancel(true)
             .build()
@@ -150,8 +157,12 @@ class WsService : Service() {
     }
 
     private fun formatThrowable(t: Throwable): String {
-        return t.message?.takeIf { it.isNotBlank() }
-            ?: t.cause?.message?.takeIf { it.isNotBlank() }
-            ?: t::class.java.simpleName
+        return generateSequence(t) { it.cause }
+            .take(3)
+            .joinToString(" -> ") { throwable ->
+                val className = throwable::class.java.simpleName
+                val message = throwable.message?.trim().orEmpty()
+                if (message.isNotEmpty()) "$className: $message" else className
+            }
     }
 }
