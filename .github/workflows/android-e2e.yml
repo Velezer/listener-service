@@ -9,9 +9,6 @@ on:
 jobs:
   connected-android-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: android
 
     steps:
       - name: Checkout
@@ -25,6 +22,7 @@ jobs:
           cache: gradle
 
       - name: Make Gradle wrapper executable
+        working-directory: android
         run: chmod +x ./gradlew
 
       - name: Run instrumentation E2E tests
@@ -35,4 +33,5 @@ jobs:
           profile: pixel_7
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          script: cd android && ./gradlew :app:connectedDebugAndroidTest
+          working-directory: android
+          script: ./gradlew :app:connectedDebugAndroidTest
