@@ -77,10 +77,18 @@ cd android
 
 This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection. It also uses multi-endpoint fallback resolution to reduce flaky failures caused by transient CDN or GitHub raw endpoint outages.
 
-Gradle/JVM compatibility E2E test (verifies wrapper+Gradle can run tests on the host JDK):
+Gradle/JVM compatibility E2E test (verifies wrapper+Gradle can run Android JVM tests on the host JDK):
 
 ```bash
 bash tests/e2e_android_gradle_jvm_compat.sh
+```
+
+This test intentionally runs `testDebugUnitTest` with `--no-parallel` to avoid Gradle 9 + Android plugin dependency-mutation races seen when parallel task graphs resolve debug/release classpaths concurrently.
+
+Guard test for the non-parallel compatibility flag:
+
+```bash
+bash tests/e2e_android_gradle_non_parallel_guard.sh
 ```
 
 ### Unit tests
@@ -137,5 +145,5 @@ Best-practice triage flow:
 
 GitHub Actions now validates the live config endpoint before running JVM or instrumentation tests.
 
-- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh`, `tests/e2e_raw_github_config_fallback.sh`, and `tests/e2e_android_gradle_jvm_compat.sh` (which executes `./gradlew test`) on pushes and pull requests.
+- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh`, `tests/e2e_raw_github_config_fallback.sh`, `tests/e2e_android_gradle_jvm_compat.sh` (which executes `./gradlew testDebugUnitTest --no-parallel`), and `tests/e2e_android_gradle_non_parallel_guard.sh` on pushes and pull requests.
 - `android-e2e.yml`: runs both live endpoint checks (`tests/e2e_raw_github_config.sh` + `tests/e2e_raw_github_config_fallback.sh`) and then instrumentation tests (`./gradlew :app:connectedDebugAndroidTest`) on pull requests affecting Android/runtime test scope.
