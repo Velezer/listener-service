@@ -7,7 +7,7 @@ DEFAULT_URLS=(
 )
 
 if [[ $# -gt 0 ]]; then
-  CONFIG_URLS=("$1")
+  CONFIG_URLS=("$@")
 else
   CONFIG_URLS=("${DEFAULT_URLS[@]}")
 fi
