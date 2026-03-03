@@ -52,10 +52,18 @@ The script automatically retries and falls back to a secondary live GitHub endpo
 bash tests/e2e_raw_github_config.sh
 ```
 
-Optional: test a different config URL:
+Optional: test one or more custom config URLs (checked in order):
 
 ```bash
-bash tests/e2e_raw_github_config.sh "https://raw.githubusercontent.com/<owner>/<repo>/<branch>/config.json"
+bash tests/e2e_raw_github_config.sh \
+  "https://invalid.example/config.json" \
+  "https://raw.githubusercontent.com/<owner>/<repo>/<branch>/config.json"
+```
+
+Fallback behavior E2E test:
+
+```bash
+bash tests/e2e_raw_github_config_fallback.sh
 ```
 
 ### Android runtime E2E test (live config, no mocks)
@@ -68,6 +76,12 @@ cd android
 ```
 
 This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection. It also uses multi-endpoint fallback resolution to reduce flaky failures caused by transient CDN or GitHub raw endpoint outages.
+
+Gradle/JVM compatibility E2E test (verifies wrapper+Gradle can run tests on the host JDK):
+
+```bash
+bash tests/e2e_android_gradle_jvm_compat.sh
+```
 
 ### Unit tests
 
@@ -123,5 +137,5 @@ Best-practice triage flow:
 
 GitHub Actions now validates the live config endpoint before running JVM or instrumentation tests.
 
-- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh` and Android JVM unit tests (`./gradlew test`) on pushes and pull requests.
-- `android-e2e.yml`: runs the same live endpoint validation and then instrumentation tests (`./gradlew :app:connectedDebugAndroidTest`) on pull requests affecting Android/runtime test scope.
+- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh`, `tests/e2e_raw_github_config_fallback.sh`, and `tests/e2e_android_gradle_jvm_compat.sh` (which executes `./gradlew test`) on pushes and pull requests.
+- `android-e2e.yml`: runs both live endpoint checks (`tests/e2e_raw_github_config.sh` + `tests/e2e_raw_github_config_fallback.sh`) and then instrumentation tests (`./gradlew :app:connectedDebugAndroidTest`) on pull requests affecting Android/runtime test scope.

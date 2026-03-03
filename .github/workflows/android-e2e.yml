@@ -6,6 +6,7 @@ on:
       - 'android/**'
       - 'config.json'
       - 'tests/e2e_raw_github_config.sh'
+      - 'tests/e2e_android_gradle_jvm_compat.sh'
       - '.github/workflows/android-e2e.yml'
 
 jobs:
@@ -29,6 +30,9 @@ jobs:
 
       - name: Validate live config endpoint (no mocks)
         run: bash tests/e2e_raw_github_config.sh
+
+      - name: Validate config fallback path (no mocks)
+        run: bash tests/e2e_raw_github_config_fallback.sh
 
       - name: Run instrumentation E2E tests
         uses: reactivecircus/android-emulator-runner@v2

@@ -24,13 +24,18 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Validate live config endpoint (no mocks)
         run: bash tests/e2e_raw_github_config.sh
+
+      - name: Validate config fallback path (no mocks)
+        run: bash tests/e2e_raw_github_config_fallback.sh
 
       - name: Make Gradle wrapper executable
         working-directory: android
         run: chmod +x ./gradlew
 
-      - name: Run JVM unit tests
-        working-directory: android
-        run: ./gradlew test --no-daemon
+      - name: Run JVM unit tests (wrapper/JVM compatibility E2E)
+        run: bash tests/e2e_android_gradle_jvm_compat.sh
