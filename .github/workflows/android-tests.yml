@@ -39,3 +39,6 @@ jobs:
 
       - name: Run JVM unit tests (wrapper/JVM compatibility E2E)
         run: bash tests/e2e_android_gradle_jvm_compat.sh
+
+      - name: Verify Gradle JVM-compat E2E keeps non-parallel execution guard
+        run: bash tests/e2e_android_gradle_non_parallel_guard.sh

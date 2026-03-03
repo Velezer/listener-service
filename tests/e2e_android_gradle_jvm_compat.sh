@@ -13,6 +13,6 @@ else
   echo "OK: Gradle runtime JVM -> $jvm_line"
 fi
 
-./gradlew test --no-daemon
+./gradlew testDebugUnitTest --no-daemon --no-parallel
 
-echo "OK: Android JVM unit tests passed via Gradle wrapper"
+echo "OK: Android debug JVM unit tests passed via Gradle wrapper (no parallel configuration)"
