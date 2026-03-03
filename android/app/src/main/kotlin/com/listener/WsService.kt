@@ -32,7 +32,7 @@ class WsService : Service() {
         val notifyUser: Boolean = false
     ) {
         STARTED("Started", android.R.drawable.ic_media_play, "Starting listener"),
-        CONNECTING("Connecting", android.R.drawable.ic_popup_sync, "Connecting…"),
+        CONNECTING("Connecting", android.R.drawable.ic_popup_sync, "Connecting…", true),
         CONNECTED("Connected", android.R.drawable.ic_dialog_info, "Connected"),
         MESSAGE("Message", android.R.drawable.ic_dialog_email, "Connected", true),
         DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert, "Disconnected", true),
@@ -70,6 +70,8 @@ class WsService : Service() {
                 return@Thread
             }
 
+            handleEvent(WsEvent.CONNECTING, "WSS URL: $wssUrl")
+
             val request = Request.Builder()
                 .url(wssUrl)
                 .build()
@@ -103,9 +105,14 @@ class WsService : Service() {
     private fun handleEvent(event: WsEvent, message: String? = null) {
 
         // Update foreground notification cleanly
+        val foregroundMessage = when {
+            message.isNullOrBlank() -> event.foregroundStatus
+            else -> "${event.foregroundStatus}: $message"
+        }
+
         notificationManager.notify(
             FOREGROUND_ID,
-            buildForegroundNotification(event.foregroundStatus)
+            buildForegroundNotification(foregroundMessage)
         )
 
         // Post user notification if needed

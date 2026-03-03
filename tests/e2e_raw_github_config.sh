@@ -3,7 +3,10 @@ set -euo pipefail
 
 CONFIG_URL="${1:-https://raw.githubusercontent.com/Velezer/listener-service/main/config.json}"
 
-body="$(curl -fsSL --connect-timeout 10 --max-time 30 "$CONFIG_URL")"
+body="$(curl -fsSL --connect-timeout 10 --max-time 30 \
+  -H 'User-Agent: listener-service-e2e-check/1.0' \
+  -H 'Accept: application/json' \
+  "$CONFIG_URL")"
 
 json_parse_output="$({
   python - <<'PY' "$body"

@@ -1,0 +1,27 @@
+name: Android Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Validate live config endpoint (no mocks)
+        run: bash tests/e2e_raw_github_config.sh
+
+      - name: Run JVM unit tests
+        working-directory: android
+        run: ./gradlew test --no-daemon
