@@ -74,9 +74,11 @@ cd android
 
 ## Troubleshooting
 
-### Error: `Failed to load websocket config: null`
+### Error: `Failed to load websocket config: NetworkOnMainThreadException`
 
-This usually means config parsing/loading threw an exception that had no message. The service now reports a safer fallback detail (cause message or exception type), and the config parser now emits explicit details for invalid JSON payloads (including a short response preview).
+This happens when network I/O is executed on Android's main thread. The service now fetches websocket config on a background thread before opening the socket, so startup no longer crashes with `NetworkOnMainThreadException`. Error notifications now also use expanded (big text) style so long messages are readable instead of truncated.
+
+If config loading fails for another reason, the service reports exception class + message and up to two nested causes for better troubleshooting context.
 
 Checklist:
 - Verify config URL is reachable from device network.
