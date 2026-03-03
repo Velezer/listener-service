@@ -11,6 +11,7 @@ Listener Service is an Android foreground service that:
 Default config source used by the app:
 
 - `https://raw.githubusercontent.com/Velezer/listener-service/main/config.json`
+- Fallback: `https://github.com/Velezer/listener-service/raw/main/config.json`
 
 Expected config JSON:
 
@@ -45,6 +46,7 @@ During `Connecting`, the notification now includes the exact WSS URL being used 
 ### End-to-end config test (no mocks)
 
 This validates the real hosted config payload and websocket URL format.
+The script automatically retries and falls back to a secondary live GitHub endpoint if the primary one is temporarily unavailable.
 
 ```bash
 bash tests/e2e_raw_github_config.sh
@@ -65,7 +67,7 @@ cd android
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection.
+This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection. It also uses multi-endpoint fallback resolution to reduce flaky failures caused by transient CDN or GitHub raw endpoint outages.
 
 ### Unit tests
 
@@ -119,4 +121,7 @@ Best-practice triage flow:
 
 ## CI workflow
 
-GitHub Actions runs `tests/e2e_raw_github_config.sh` and Android JVM unit tests (`./gradlew test`) on pushes and pull requests.
+GitHub Actions now validates the live config endpoint before running JVM or instrumentation tests.
+
+- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh` and Android JVM unit tests (`./gradlew test`) on pushes and pull requests.
+- `android-e2e.yml`: runs the same live endpoint validation and then instrumentation tests (`./gradlew :app:connectedDebugAndroidTest`) on pull requests affecting Android/runtime test scope.

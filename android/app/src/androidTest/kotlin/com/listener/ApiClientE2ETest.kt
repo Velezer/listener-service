@@ -10,22 +10,24 @@ class ApiClientE2ETest {
 
     @Test
     fun fetchWsUrl_readsLiveHostedConfigOnAndroidRuntime() {
-        val configUrl = "https://raw.githubusercontent.com/Velezer/listener-service/main/config.json"
-
-        val result = ApiClient.fetchWsUrl(configUrl)
+        val result = ApiClient.fetchWsUrlFromAny(ConfigEndpoints.liveConfigUrls)
 
         assertTrue("Expected ws:// or wss:// URL, got: $result", result.startsWith("ws://") || result.startsWith("wss://"))
     }
 
     @Test
     fun fetchWsUrl_liveConfigContainsNonEmptyHostAndPath() {
-        val configUrl = "https://raw.githubusercontent.com/Velezer/listener-service/main/config.json"
-
-        val result = ApiClient.fetchWsUrl(configUrl)
+        val result = ApiClient.fetchWsUrlFromAny(ConfigEndpoints.liveConfigUrls)
 
         val uri = java.net.URI(result)
         assertTrue("Expected non-empty host in websocket URL: $result", !uri.host.isNullOrBlank())
         assertTrue("Expected websocket URL path to be present: $result", uri.path.isNotBlank())
+    }
+
+    @Test
+    fun fetchWsUrl_fallbackResolverReadsFromAtLeastOneLiveEndpoint() {
+        val result = ApiClient.fetchWsUrlFromAny(ConfigEndpoints.liveConfigUrls)
+        assertTrue("Expected resolved URL to contain a host, got: $result", java.net.URI(result).host?.isNotBlank() == true)
     }
 
 }
