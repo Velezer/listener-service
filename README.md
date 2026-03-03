@@ -38,6 +38,8 @@ Legacy key is still supported:
    - Then it starts a foreground service that manages WebSocket connection.
 5. Observe connection lifecycle notifications (`Starting`, `Connecting`, `Connected`, `Message`, `Disconnected`, `Error`).
 
+During `Connecting`, the notification now includes the exact WSS URL being used so you can confirm runtime config quickly.
+
 ## Tests
 
 ### End-to-end config test (no mocks)
@@ -62,6 +64,8 @@ This instrumentation test runs on emulator/device and calls the live hosted conf
 cd android
 ./gradlew :app:connectedDebugAndroidTest
 ```
+
+This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection.
 
 ### Unit tests
 
@@ -89,3 +93,30 @@ Checklist:
 - Verify URL scheme is `ws://` or `wss://`.
 
 Run the E2E config script first to isolate remote-config problems quickly.
+
+### Error: `SocketTimeoutException: timeout -> SocketException: Socket closed`
+
+This error chain usually means the socket did not successfully complete or maintain the connection before one side closed it. Common root causes:
+
+- The resolved WebSocket URL is wrong, stale, or blocked by DNS/network policy.
+- TLS/network middleboxes terminate or delay the handshake.
+- The server endpoint closes idle or invalid clients immediately.
+- Device/emulator network connectivity is unstable.
+
+Best-practice triage flow:
+
+1. Confirm the `Connecting` notification shows the expected `WSS URL: ...` value.
+2. Validate live config parsing:
+   ```bash
+   bash tests/e2e_raw_github_config.sh
+   ```
+3. Run Android runtime E2E tests on device/emulator:
+   ```bash
+   cd android
+   ./gradlew :app:connectedDebugAndroidTest
+   ```
+4. If failures persist, test endpoint reachability from the same network as the device and verify backend timeout/close policies.
+
+## CI workflow
+
+GitHub Actions runs `tests/e2e_raw_github_config.sh` and Android JVM unit tests (`./gradlew test`) on pushes and pull requests.
