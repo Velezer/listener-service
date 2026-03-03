@@ -37,6 +37,9 @@ jobs:
         working-directory: android
         run: chmod +x ./gradlew
 
+      - name: Verify Gradle wrapper version guard (AGP compatibility E2E)
+        run: bash tests/e2e_android_gradle_wrapper_guard.sh
+
       - name: Run JVM unit tests (wrapper/JVM compatibility E2E)
         run: bash tests/e2e_android_gradle_jvm_compat.sh
 
