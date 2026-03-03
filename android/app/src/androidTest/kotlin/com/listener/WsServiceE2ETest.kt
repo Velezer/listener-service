@@ -18,8 +18,7 @@ class WsServiceE2ETest {
 
     @Test
     fun liveConfiguredWebSocket_acceptsConnectionHandshake() {
-        val configUrl = "https://raw.githubusercontent.com/Velezer/listener-service/main/config.json"
-        val wsUrl = ApiClient.fetchWsUrl(configUrl)
+        val wsUrl = ApiClient.fetchWsUrlFromAny(ConfigEndpoints.liveConfigUrls)
 
         val opened = CountDownLatch(1)
         val failed = CountDownLatch(1)

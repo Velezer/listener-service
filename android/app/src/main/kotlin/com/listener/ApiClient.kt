@@ -12,6 +12,28 @@ class ApiClient(
     private val callFactory: Call.Factory = OkHttpClient()
 ) {
 
+    fun fetchWsUrlFromAny(apiUrls: List<String>): String {
+        require(apiUrls.isNotEmpty()) { "At least one config URL is required" }
+
+        val failures = mutableListOf<String>()
+        for (apiUrl in apiUrls) {
+            val normalized = apiUrl.trim()
+            if (normalized.isEmpty()) {
+                continue
+            }
+
+            try {
+                return fetchWsUrl(normalized)
+            } catch (t: Throwable) {
+                failures += "$normalized -> ${t::class.java.simpleName}: ${t.message.orEmpty()}"
+            }
+        }
+
+        throw IOException(
+            "Unable to load websocket config from any configured endpoint. Failures: ${failures.joinToString(" | ")}"
+        )
+    }
+
     private val supportedConfigKeys = listOf(
         "wssFeederServiceAggTrade",
         "WS_FEEDER_SERVICE"
@@ -73,5 +95,7 @@ class ApiClient(
         private val defaultClient = ApiClient()
 
         fun fetchWsUrl(apiUrl: String): String = defaultClient.fetchWsUrl(apiUrl)
+
+        fun fetchWsUrlFromAny(apiUrls: List<String>): String = defaultClient.fetchWsUrlFromAny(apiUrls)
     }
 }

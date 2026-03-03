@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'android/**'
+      - 'config.json'
+      - 'tests/e2e_raw_github_config.sh'
       - '.github/workflows/android-e2e.yml'
 
 jobs:
@@ -24,6 +26,9 @@ jobs:
       - name: Make Gradle wrapper executable
         working-directory: android
         run: chmod +x ./gradlew
+
+      - name: Validate live config endpoint (no mocks)
+        run: bash tests/e2e_raw_github_config.sh
 
       - name: Run instrumentation E2E tests
         uses: reactivecircus/android-emulator-runner@v2

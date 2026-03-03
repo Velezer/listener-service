@@ -19,8 +19,17 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Validate live config endpoint (no mocks)
         run: bash tests/e2e_raw_github_config.sh
+
+      - name: Make Gradle wrapper executable
+        working-directory: android
+        run: chmod +x ./gradlew
 
       - name: Run JVM unit tests
         working-directory: android
