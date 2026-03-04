@@ -4,6 +4,8 @@ Listener Service is an Android foreground service that:
 - downloads a JSON config,
 - extracts the WebSocket URL (`wssFeederServiceAggTrade` or `WS_FEEDER_SERVICE`),
 - connects to the WebSocket endpoint,
+- keeps the connection alive with heartbeat ping/pong,
+- automatically reconnects with bounded exponential backoff after disconnect/failure,
 - surfaces status and events via Android notifications.
 
 ## Configuration
@@ -38,6 +40,13 @@ Legacy key is still supported:
    - It requests notification permission on Android 13+.
    - Then it starts a foreground service that manages WebSocket connection.
 5. Observe connection lifecycle notifications (`Starting`, `Connecting`, `Connected`, `Message`, `Disconnected`, `Error`).
+
+### Connection reliability behavior
+
+- The client sends websocket heartbeat pings every 20 seconds.
+- Keepalive activity is visible in foreground status as `Connected: ping` and `Connected: pong`.
+- If the socket closes or fails unexpectedly, the service automatically retries with backoff (2s, 4s, 8s, 16s, 30s max).
+- Reconnect attempts are surfaced in notifications, for example: `Connecting: Reconnect #3 in 8s (failure)`.
 
 During `Connecting`, the notification now includes the exact WSS URL being used so you can confirm runtime config quickly.
 
@@ -76,6 +85,8 @@ cd android
 ```
 
 This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection. It also uses multi-endpoint fallback resolution to reduce flaky failures caused by transient CDN or GitHub raw endpoint outages.
+
+It also includes a live streaming stability E2E case (`liveConfiguredWebSocket_receivesMessagesWithoutImmediateDrop`) that verifies the endpoint opens and emits real messages while client ping interval is enabled (no mocks/fakes).
 
 Gradle/JVM compatibility E2E test (verifies wrapper+Gradle can run Android JVM tests on the host JDK):
 

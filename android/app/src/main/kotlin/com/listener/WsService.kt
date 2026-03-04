@@ -10,18 +10,43 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import okhttp3.*
 import okio.ByteString
+import java.util.concurrent.TimeUnit
 
 class WsService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "ws_service_channel"
         private const val FOREGROUND_ID = 1
+        private const val KEEPALIVE_INTERVAL_MS = 20_000L
+        private const val RECONNECT_BASE_DELAY_MS = 2_000L
+        private const val RECONNECT_MAX_DELAY_MS = 30_000L
     }
 
     private lateinit var notificationManager: NotificationManager
     private var webSocket: WebSocket? = null
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val client = OkHttpClient()
+    private val reconnectRunnable = Runnable { connectWebSocket() }
+    private val keepaliveRunnable = object : Runnable {
+        override fun run() {
+            if (isServiceStopping) return
+
+            val activeSocket = webSocket
+            if (activeSocket != null) {
+                val sent = activeSocket.send("ping")
+                if (sent) {
+                    handleEvent(WsEvent.KEEPALIVE, "ping")
+                }
+            }
+
+            mainHandler.postDelayed(this, KEEPALIVE_INTERVAL_MS)
+        }
+    }
+    private var reconnectAttempt = 0
+    @Volatile
+    private var isServiceStopping = false
+    private val client = OkHttpClient.Builder()
+        .pingInterval(20, TimeUnit.SECONDS)
+        .build()
 
     private enum class WsEvent(
         val title: String,
@@ -33,6 +58,7 @@ class WsService : Service() {
         CONNECTING("Connecting", android.R.drawable.ic_popup_sync, "Connecting…", true),
         CONNECTED("Connected", android.R.drawable.ic_dialog_info, "Connected"),
         MESSAGE("Message", android.R.drawable.ic_dialog_email, "Connected", true),
+        KEEPALIVE("Keepalive", android.R.drawable.ic_popup_sync, "Connected"),
         DISCONNECTED("Disconnected", android.R.drawable.ic_dialog_alert, "Disconnected", true),
         ERROR("Error", android.R.drawable.ic_delete, "Connection error", true),
         STOPPED("Stopped", android.R.drawable.ic_media_pause, "Stopped", true)
@@ -57,6 +83,8 @@ class WsService : Service() {
     }
 
     private fun connectWebSocket() {
+        if (isServiceStopping) return
+
         handleEvent(WsEvent.CONNECTING)
 
         Thread {
@@ -77,6 +105,7 @@ class WsService : Service() {
             webSocket = client.newWebSocket(request, object : WebSocketListener() {
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    reconnectAttempt = 0
                     handleEvent(WsEvent.CONNECTED)
                 }
 
@@ -84,20 +113,54 @@ class WsService : Service() {
                     handleEvent(WsEvent.MESSAGE, text)
                 }
 
-                override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                    handleEvent(WsEvent.MESSAGE, bytes.utf8())
-                }
-
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     handleEvent(WsEvent.DISCONNECTED, reason)
                     webSocket.close(code, reason)
                 }
 
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    handleEvent(WsEvent.DISCONNECTED, "code=$code reason=$reason")
+                    scheduleReconnect("closed")
+                }
+
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     handleEvent(WsEvent.ERROR, formatThrowable(t))
+                    scheduleReconnect("failure")
+                }
+
+                override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                    val message = bytes.utf8()
+                    if (message.equals("pong", ignoreCase = true)) {
+                        handleEvent(WsEvent.KEEPALIVE, "pong")
+                    } else {
+                        handleEvent(WsEvent.MESSAGE, message)
+                    }
                 }
             })
+
+            startKeepaliveLoop()
         }.start()
+    }
+
+    private fun startKeepaliveLoop() {
+        mainHandler.removeCallbacks(keepaliveRunnable)
+        mainHandler.postDelayed(keepaliveRunnable, KEEPALIVE_INTERVAL_MS)
+    }
+
+    private fun scheduleReconnect(trigger: String) {
+        if (isServiceStopping) return
+
+        reconnectAttempt += 1
+        val backoff = (RECONNECT_BASE_DELAY_MS shl (reconnectAttempt - 1).coerceAtMost(4))
+            .coerceAtMost(RECONNECT_MAX_DELAY_MS)
+
+        handleEvent(
+            WsEvent.CONNECTING,
+            "Reconnect #$reconnectAttempt in ${backoff / 1000}s ($trigger)"
+        )
+
+        mainHandler.removeCallbacks(reconnectRunnable)
+        mainHandler.postDelayed(reconnectRunnable, backoff)
     }
 
     private fun handleEvent(event: WsEvent, message: String? = null) {
@@ -143,6 +206,8 @@ class WsService : Service() {
     }
 
     override fun onDestroy() {
+        isServiceStopping = true
+        mainHandler.removeCallbacksAndMessages(null)
         webSocket?.close(1000, "Service destroyed")
         handleEvent(WsEvent.STOPPED)
         super.onDestroy()
@@ -170,4 +235,5 @@ class WsService : Service() {
                 if (message.isNotEmpty()) "$className: $message" else className
             }
     }
+
 }
