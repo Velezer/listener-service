@@ -7,6 +7,7 @@ on:
       - 'config.json'
       - 'tests/e2e_raw_github_config.sh'
       - 'tests/e2e_android_gradle_jvm_compat.sh'
+      - 'tests/e2e_workflow_no_push_guard.sh'
       - '.github/workflows/android-e2e.yml'
 
 jobs:
@@ -33,6 +34,10 @@ jobs:
 
       - name: Validate config fallback path (no mocks)
         run: bash tests/e2e_raw_github_config_fallback.sh
+
+
+      - name: Verify workflows do not trigger on push
+        run: bash tests/e2e_workflow_no_push_guard.sh
 
       - name: Run instrumentation E2E tests
         uses: reactivecircus/android-emulator-runner@v2
