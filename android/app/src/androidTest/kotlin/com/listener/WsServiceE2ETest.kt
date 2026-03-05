@@ -74,7 +74,7 @@ class WsServiceE2ETest {
         val client = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
-            .pingInterval(20, TimeUnit.SECONDS)
+            .pingInterval(5, TimeUnit.SECONDS)
             .build()
 
         val socket = client.newWebSocket(
@@ -110,6 +110,64 @@ class WsServiceE2ETest {
         assertTrue(
             "Expected $wsUrl to stay live and stream at least one message. Opened=${hasOpened.get()} receivedMessage=$didReceiveMessage failure=$failureMessage",
             didOpen && didReceiveMessage && !didFail
+        )
+    }
+
+    @Test
+    fun liveConfiguredWebSocket_allowsImmediateReconnectAfterClose() {
+        val wsUrl = ApiClient.fetchWsUrlFromAny(ConfigEndpoints.liveConfigUrls)
+
+        val firstOpen = CountDownLatch(1)
+        val secondOpen = CountDownLatch(1)
+        val failed = CountDownLatch(1)
+        var failureMessage = ""
+
+        val client = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .pingInterval(5, TimeUnit.SECONDS)
+            .build()
+
+        val firstSocket = client.newWebSocket(
+            Request.Builder().url(wsUrl).build(),
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    firstOpen.countDown()
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    failureMessage = "${t::class.java.simpleName}: ${t.message.orEmpty()}"
+                    failed.countDown()
+                }
+            }
+        )
+
+        val didFirstOpen = firstOpen.await(25, TimeUnit.SECONDS)
+        firstSocket.close(1000, "force immediate reconnect attempt")
+
+        val secondSocket = client.newWebSocket(
+            Request.Builder().url(wsUrl).build(),
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    secondOpen.countDown()
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    failureMessage = "${t::class.java.simpleName}: ${t.message.orEmpty()}"
+                    failed.countDown()
+                }
+            }
+        )
+
+        val didSecondOpen = secondOpen.await(8, TimeUnit.SECONDS)
+        val didFail = failed.await(0, TimeUnit.SECONDS)
+
+        secondSocket.close(1000, "test complete")
+        client.dispatcher.executorService.shutdown()
+
+        assertTrue(
+            "Expected immediate reconnect handshake on $wsUrl. firstOpen=$didFirstOpen secondOpen=$didSecondOpen failure=$failureMessage",
+            didFirstOpen && didSecondOpen && !didFail
         )
     }
 }

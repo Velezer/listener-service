@@ -5,7 +5,7 @@ Listener Service is an Android foreground service that:
 - extracts the WebSocket URL (`wssFeederServiceAggTrade` or `WS_FEEDER_SERVICE`),
 - connects to the WebSocket endpoint,
 - keeps the connection alive with heartbeat ping/pong,
-- automatically reconnects with bounded exponential backoff after disconnect/failure,
+- automatically reconnects immediately after disconnect/failure,
 - surfaces status and events via Android notifications.
 
 ## Configuration
@@ -43,10 +43,10 @@ Legacy key is still supported:
 
 ### Connection reliability behavior
 
-- The client sends websocket heartbeat pings every 20 seconds.
+- The client sends websocket heartbeat pings every 5 seconds for faster liveness checks.
 - Keepalive activity is visible in foreground status as `Connected: ping` and `Connected: pong`.
-- If the socket closes or fails unexpectedly, the service automatically retries with backoff (2s, 4s, 8s, 16s, 30s max).
-- Reconnect attempts are surfaced in notifications, for example: `Connecting: Reconnect #3 in 8s (failure)`.
+- If the socket closes or fails unexpectedly, the service retries immediately (no reconnect delay).
+- Reconnect attempts are surfaced in notifications, for example: `Connecting: Reconnect #3 now (failure)`.
 
 During `Connecting`, the notification now includes the exact WSS URL being used so you can confirm runtime config quickly.
 
@@ -86,7 +86,9 @@ cd android
 
 This suite now includes a live WebSocket handshake test that fetches `config.json` and verifies that the configured endpoint accepts a real connection. It also uses multi-endpoint fallback resolution to reduce flaky failures caused by transient CDN or GitHub raw endpoint outages.
 
-It also includes a live streaming stability E2E case (`liveConfiguredWebSocket_receivesMessagesWithoutImmediateDrop`) that verifies the endpoint opens and emits real messages while client ping interval is enabled (no mocks/fakes).
+It also includes a live streaming stability E2E case (`liveConfiguredWebSocket_receivesMessagesWithoutImmediateDrop`) that verifies the endpoint opens and emits real messages while a 5s client ping interval is enabled (no mocks/fakes).
+
+A second live reconnect E2E case (`liveConfiguredWebSocket_allowsImmediateReconnectAfterClose`) verifies the endpoint can be re-opened immediately after a close, matching the service's zero-delay reconnect policy.
 
 Gradle/JVM compatibility E2E test (verifies wrapper+Gradle can run Android JVM tests on the host JDK):
 
