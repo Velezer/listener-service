@@ -1,9 +1,8 @@
 name: Android Tests
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   tests:
@@ -45,3 +44,6 @@ jobs:
 
       - name: Verify Gradle JVM-compat E2E keeps non-parallel execution guard
         run: bash tests/e2e_android_gradle_non_parallel_guard.sh
+
+      - name: Verify workflows do not trigger on push
+        run: bash tests/e2e_workflow_no_push_guard.sh

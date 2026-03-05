@@ -164,7 +164,9 @@ Best-practice triage flow:
 
 GitHub Actions now validates the live config endpoint before running JVM or instrumentation tests.
 
-- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh`, `tests/e2e_raw_github_config_fallback.sh`, `tests/e2e_android_gradle_wrapper_guard.sh`, `tests/e2e_android_gradle_jvm_compat.sh` (which executes `./gradlew testDebugUnitTest --no-parallel`), and `tests/e2e_android_gradle_non_parallel_guard.sh` on pushes and pull requests.
-- `android-e2e.yml`: runs both live endpoint checks (`tests/e2e_raw_github_config.sh` + `tests/e2e_raw_github_config_fallback.sh`) and then instrumentation tests (`./gradlew :app:connectedDebugAndroidTest`) on pull requests affecting Android/runtime test scope.
+- `android-tests.yml`: runs `tests/e2e_raw_github_config.sh`, `tests/e2e_raw_github_config_fallback.sh`, `tests/e2e_android_gradle_wrapper_guard.sh`, `tests/e2e_android_gradle_jvm_compat.sh` (which executes `./gradlew testDebugUnitTest --no-parallel`), and `tests/e2e_android_gradle_non_parallel_guard.sh` on pull requests and manual runs (`workflow_dispatch`).
+- `android-e2e.yml`: runs both live endpoint checks (`tests/e2e_raw_github_config.sh` + `tests/e2e_raw_github_config_fallback.sh`) and then instrumentation tests (`./gradlew :app:connectedDebugAndroidTest`) on pull requests affecting Android/runtime test scope, and it also enforces the no-`push` trigger policy via `tests/e2e_workflow_no_push_guard.sh`.
 
 To avoid AGP dependency-mutation failures under the current plugin configuration, Gradle wrapper is pinned to 8.x and enforced by `tests/e2e_android_gradle_wrapper_guard.sh` in CI.
+
+A dedicated CI policy E2E guard (`tests/e2e_workflow_no_push_guard.sh`) fails if any checked workflow reintroduces a `push:` trigger.
