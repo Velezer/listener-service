@@ -17,9 +17,8 @@ class WsService : Service() {
     companion object {
         private const val CHANNEL_ID = "ws_service_channel"
         private const val FOREGROUND_ID = 1
-        private const val KEEPALIVE_INTERVAL_MS = 20_000L
-        private const val RECONNECT_BASE_DELAY_MS = 2_000L
-        private const val RECONNECT_MAX_DELAY_MS = 30_000L
+        private const val KEEPALIVE_INTERVAL_MS = 5_000L
+        private const val RECONNECT_DELAY_MS = 0L
     }
 
     private lateinit var notificationManager: NotificationManager
@@ -45,7 +44,7 @@ class WsService : Service() {
     @Volatile
     private var isServiceStopping = false
     private val client = OkHttpClient.Builder()
-        .pingInterval(20, TimeUnit.SECONDS)
+        .pingInterval(KEEPALIVE_INTERVAL_MS, TimeUnit.MILLISECONDS)
         .build()
 
     private enum class WsEvent(
@@ -151,16 +150,13 @@ class WsService : Service() {
         if (isServiceStopping) return
 
         reconnectAttempt += 1
-        val backoff = (RECONNECT_BASE_DELAY_MS shl (reconnectAttempt - 1).coerceAtMost(4))
-            .coerceAtMost(RECONNECT_MAX_DELAY_MS)
-
         handleEvent(
             WsEvent.CONNECTING,
-            "Reconnect #$reconnectAttempt in ${backoff / 1000}s ($trigger)"
+            "Reconnect #$reconnectAttempt now ($trigger)"
         )
 
         mainHandler.removeCallbacks(reconnectRunnable)
-        mainHandler.postDelayed(reconnectRunnable, backoff)
+        mainHandler.postDelayed(reconnectRunnable, RECONNECT_DELAY_MS)
     }
 
     private fun handleEvent(event: WsEvent, message: String? = null) {
