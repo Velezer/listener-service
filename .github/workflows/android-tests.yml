@@ -50,3 +50,6 @@ jobs:
 
       - name: Verify workflows include live checks and instrumentation E2E
         run: bash tests/e2e_workflow_live_checks_guard.sh
+
+      - name: Verify WsService background return semantics guard
+        run: bash tests/e2e_ws_service_background_return_guard.sh

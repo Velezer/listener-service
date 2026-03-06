@@ -98,7 +98,7 @@ class WsService : Service() {
             } catch (t: Throwable) {
                 handleEvent(WsEvent.ERROR, "Failed to load websocket config: ${formatThrowable(t)}")
                 mainHandler.post { stopSelf() }
-                return@Thread
+                return@runInBackground
             }
 
             handleEvent(WsEvent.CONNECTING, "WSS URL: $wssUrl")

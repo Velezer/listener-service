@@ -39,6 +39,10 @@ jobs:
       - name: Verify workflows do not trigger on push
         run: bash tests/e2e_workflow_no_push_guard.sh
 
+
+      - name: Verify WsService background return semantics guard
+        run: bash tests/e2e_ws_service_background_return_guard.sh
+
       - name: Run instrumentation E2E tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
