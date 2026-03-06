@@ -36,8 +36,6 @@ class MainActivity : Activity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        // Start service regardless of permission result — foreground notification
-        // still works, but heads-up notifications require the permission on API 33+.
         startWsService()
     }
 

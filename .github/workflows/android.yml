@@ -68,14 +68,3 @@ jobs:
     - name: Debug ref
       run: echo "REF = $GITHUB_REF"
 
-    # - name: Build APK Release
-    #   run: |
-    #     cd android
-    #     chmod +x gradlew
-    #     ./gradlew assembleRelease
-
-    # - name: Create Release
-    #   if: startsWith(github.ref, 'refs/tags/')
-    #   uses: softprops/action-gh-release@v1
-    #   with:
-    #     files: android/app/build/outputs/apk/release/*.apk
