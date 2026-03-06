@@ -17,6 +17,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import java.io.EOFException
 import java.net.SocketException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -121,9 +122,10 @@ class WsService : Service() {
 
                 private fun shouldSuppressFailure(t: Throwable): Boolean {
                     val message = t.message.orEmpty()
-                    return t is SocketException &&
+                    return (t is SocketException || t is EOFException) &&
                         (message.contains("Socket closed", ignoreCase = true) ||
-                            message.contains("Connection reset", ignoreCase = true))
+                            message.contains("Connection reset", ignoreCase = true) ||
+                            message.contains("unexpected end", ignoreCase = true))
                 }
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -157,8 +159,14 @@ class WsService : Service() {
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     if (!isCurrentConnection()) return
-                    if (isServiceStopping || shouldSuppressFailure(t)) {
+                    if (isServiceStopping) {
                         handleEvent(WsEvent.DISCONNECTED, formatThrowable(t))
+                        return
+                    }
+
+                    if (shouldSuppressFailure(t)) {
+                        handleEvent(WsEvent.DISCONNECTED, formatThrowable(t))
+                        scheduleReconnect("expected-socket-reset")
                         return
                     }
                     handleEvent(WsEvent.ERROR, formatThrowable(t))
