@@ -1,6 +1,9 @@
 package com.listener
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -8,7 +11,11 @@ import android.os.IBinder
 import android.os.Handler
 import android.os.Looper
 import androidx.core.app.NotificationCompat
-import okhttp3.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 
@@ -71,7 +78,6 @@ class WsService : Service() {
 
         createNotificationChannel()
 
-        // Start foreground ONCE
         startForeground(
             FOREGROUND_ID,
             buildForegroundNotification("Starting listener")
@@ -86,7 +92,7 @@ class WsService : Service() {
 
         handleEvent(WsEvent.CONNECTING)
 
-        Thread {
+        runInBackground {
             val wssUrl = try {
                 ApiClient.fetchWsUrlFromAny(ConfigEndpoints.liveConfigUrls)
             } catch (t: Throwable) {
@@ -138,7 +144,7 @@ class WsService : Service() {
             })
 
             startKeepaliveLoop()
-        }.start()
+        }
     }
 
     private fun startKeepaliveLoop() {
@@ -160,8 +166,6 @@ class WsService : Service() {
     }
 
     private fun handleEvent(event: WsEvent, message: String? = null) {
-
-        // Update foreground notification cleanly
         val foregroundMessage = when {
             message.isNullOrBlank() -> event.foregroundStatus
             else -> "${event.foregroundStatus}: $message"
@@ -172,7 +176,6 @@ class WsService : Service() {
             buildForegroundNotification(foregroundMessage)
         )
 
-        // Post user notification if needed
         if (event.notifyUser) {
             postEventNotification(event, message)
         }
@@ -198,7 +201,7 @@ class WsService : Service() {
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        notificationManager.notify(nextNotificationId(), notification)
     }
 
     override fun onDestroy() {
@@ -230,6 +233,14 @@ class WsService : Service() {
                 val message = throwable.message?.trim().orEmpty()
                 if (message.isNotEmpty()) "$className: $message" else className
             }
+    }
+
+    private fun runInBackground(block: () -> Unit) {
+        Thread(block, "ws-service-worker").start()
+    }
+
+    private fun nextNotificationId(): Int {
+        return (System.currentTimeMillis() and 0x7FFFFFFF).toInt()
     }
 
 }

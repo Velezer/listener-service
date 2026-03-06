@@ -34,11 +34,6 @@ class ApiClient(
         )
     }
 
-    private val supportedConfigKeys = listOf(
-        "wssFeederServiceAggTrade",
-        "WS_FEEDER_SERVICE"
-    )
-
     fun fetchWsUrl(apiUrl: String): String {
         val request = Request.Builder()
             .url(apiUrl)
@@ -66,11 +61,11 @@ class ApiClient(
                 )
             }
 
-            val wsUrl = supportedConfigKeys
+            val wsUrl = SUPPORTED_CONFIG_KEYS
                 .asSequence()
                 .map { key -> json.optString(key).trim() }
                 .firstOrNull { it.isNotEmpty() }
-                ?: throw IOException("Missing websocket URL in config. Supported keys: $supportedConfigKeys")
+                ?: throw IOException("Missing websocket URL in config. Supported keys: $SUPPORTED_CONFIG_KEYS")
 
             val parsedUri = try {
                 URI(wsUrl)
@@ -92,6 +87,11 @@ class ApiClient(
     }
 
     companion object {
+        private val SUPPORTED_CONFIG_KEYS = listOf(
+            "wssFeederServiceAggTrade",
+            "WS_FEEDER_SERVICE"
+        )
+
         private val defaultClient = ApiClient()
 
         fun fetchWsUrl(apiUrl: String): String = defaultClient.fetchWsUrl(apiUrl)

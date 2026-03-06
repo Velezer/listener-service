@@ -47,3 +47,6 @@ jobs:
 
       - name: Verify workflows do not trigger on push
         run: bash tests/e2e_workflow_no_push_guard.sh
+
+      - name: Verify workflows include live checks and instrumentation E2E
+        run: bash tests/e2e_workflow_live_checks_guard.sh
