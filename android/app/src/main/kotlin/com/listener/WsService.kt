@@ -17,7 +17,10 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import java.io.EOFException
+import java.net.SocketException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 class WsService : Service() {
 
@@ -30,6 +33,7 @@ class WsService : Service() {
 
     private lateinit var notificationManager: NotificationManager
     private var webSocket: WebSocket? = null
+    private val connectionGeneration = AtomicLong(0)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val reconnectRunnable = Runnable { connectWebSocket() }
     private val keepaliveRunnable = object : Runnable {
@@ -90,6 +94,9 @@ class WsService : Service() {
     private fun connectWebSocket() {
         if (isServiceStopping) return
 
+        val generation = connectionGeneration.incrementAndGet()
+        closeCurrentSocket("replacing stale socket")
+
         handleEvent(WsEvent.CONNECTING)
 
         runInBackground {
@@ -109,31 +116,65 @@ class WsService : Service() {
 
             webSocket = client.newWebSocket(request, object : WebSocketListener() {
 
+                private fun isCurrentConnection(): Boolean {
+                    return generation == connectionGeneration.get()
+                }
+
+                private fun shouldSuppressFailure(t: Throwable): Boolean {
+                    val message = t.message.orEmpty()
+                    return (t is SocketException || t is EOFException) &&
+                        (message.contains("Socket closed", ignoreCase = true) ||
+                            message.contains("Connection reset", ignoreCase = true) ||
+                            message.contains("unexpected end", ignoreCase = true))
+                }
+
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    if (!isCurrentConnection()) {
+                        webSocket.close(1000, "superseded connection")
+                        return
+                    }
                     reconnectAttempt = 0
                     handleEvent(WsEvent.CONNECTED)
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
+                    if (!isCurrentConnection()) return
                     handleEvent(WsEvent.MESSAGE, text)
                 }
 
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    if (!isCurrentConnection()) {
+                        webSocket.close(code, reason)
+                        return
+                    }
                     handleEvent(WsEvent.DISCONNECTED, reason)
                     webSocket.close(code, reason)
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (!isCurrentConnection()) return
                     handleEvent(WsEvent.DISCONNECTED, "code=$code reason=$reason")
                     scheduleReconnect("closed")
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    if (!isCurrentConnection()) return
+                    if (isServiceStopping) {
+                        handleEvent(WsEvent.DISCONNECTED, formatThrowable(t))
+                        return
+                    }
+
+                    if (shouldSuppressFailure(t)) {
+                        handleEvent(WsEvent.DISCONNECTED, formatThrowable(t))
+                        scheduleReconnect("expected-socket-reset")
+                        return
+                    }
                     handleEvent(WsEvent.ERROR, formatThrowable(t))
                     scheduleReconnect("failure")
                 }
 
                 override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                    if (!isCurrentConnection()) return
                     val message = bytes.utf8()
                     if (message.equals("pong", ignoreCase = true)) {
                         handleEvent(WsEvent.KEEPALIVE, "pong")
@@ -206,8 +247,9 @@ class WsService : Service() {
 
     override fun onDestroy() {
         isServiceStopping = true
+        connectionGeneration.incrementAndGet()
         mainHandler.removeCallbacksAndMessages(null)
-        webSocket?.close(1000, "Service destroyed")
+        closeCurrentSocket("Service destroyed")
         handleEvent(WsEvent.STOPPED)
         super.onDestroy()
     }
@@ -241,6 +283,12 @@ class WsService : Service() {
 
     private fun nextNotificationId(): Int {
         return (System.currentTimeMillis() and 0x7FFFFFFF).toInt()
+    }
+
+    private fun closeCurrentSocket(reason: String) {
+        val socket = webSocket
+        webSocket = null
+        socket?.close(1000, reason)
     }
 
 }
