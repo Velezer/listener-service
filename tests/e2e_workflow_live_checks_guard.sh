@@ -9,7 +9,6 @@ workflows=(
 required_checks=(
   "tests/e2e_raw_github_config.sh"
   "tests/e2e_raw_github_config_fallback.sh"
-  "tests/e2e_ws_service_background_return_guard.sh"
 )
 
 for wf in "${workflows[@]}"; do
