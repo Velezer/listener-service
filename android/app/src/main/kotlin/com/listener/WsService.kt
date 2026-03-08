@@ -28,6 +28,7 @@ class WsService : Service() {
         private const val CHANNEL_ID = "ws_service_channel"
         private const val FOREGROUND_ID = 1
         private const val KEEPALIVE_INTERVAL_MS = 5_000L
+        private const val KEEPALIVE_TIMEOUT_MS = 20_000L
         private const val RECONNECT_DELAY_MS = 0L
     }
 
@@ -36,15 +37,30 @@ class WsService : Service() {
     private val connectionGeneration = AtomicLong(0)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val reconnectRunnable = Runnable { connectWebSocket() }
+    @Volatile
+    private var lastSocketActivityAtMs: Long = 0L
     private val keepaliveRunnable = object : Runnable {
         override fun run() {
             if (isServiceStopping) return
 
             val activeSocket = webSocket
             if (activeSocket != null) {
+                val idleMs = System.currentTimeMillis() - lastSocketActivityAtMs
+                if (idleMs >= KEEPALIVE_TIMEOUT_MS) {
+                    handleEvent(WsEvent.DISCONNECTED, "keepalive timeout after ${idleMs}ms")
+                    closeCurrentSocket("keepalive timeout")
+                    scheduleReconnect("keepalive-timeout")
+                    return
+                }
+
                 val sent = activeSocket.send("ping")
                 if (sent) {
                     handleEvent(WsEvent.KEEPALIVE, "ping")
+                } else {
+                    handleEvent(WsEvent.DISCONNECTED, "keepalive ping send failed")
+                    closeCurrentSocket("keepalive send failed")
+                    scheduleReconnect("keepalive-send-failed")
+                    return
                 }
             }
 
@@ -96,6 +112,7 @@ class WsService : Service() {
 
         val generation = connectionGeneration.incrementAndGet()
         closeCurrentSocket("replacing stale socket")
+        stopKeepaliveLoop()
 
         handleEvent(WsEvent.CONNECTING)
 
@@ -134,11 +151,14 @@ class WsService : Service() {
                         return
                     }
                     reconnectAttempt = 0
+                    markSocketActivity()
+                    startKeepaliveLoop()
                     handleEvent(WsEvent.CONNECTED)
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     if (!isCurrentConnection()) return
+                    markSocketActivity()
                     handleEvent(WsEvent.MESSAGE, text)
                 }
 
@@ -147,18 +167,21 @@ class WsService : Service() {
                         webSocket.close(code, reason)
                         return
                     }
+                    stopKeepaliveLoop()
                     handleEvent(WsEvent.DISCONNECTED, reason)
                     webSocket.close(code, reason)
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     if (!isCurrentConnection()) return
+                    stopKeepaliveLoop()
                     handleEvent(WsEvent.DISCONNECTED, "code=$code reason=$reason")
                     scheduleReconnect("closed")
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     if (!isCurrentConnection()) return
+                    stopKeepaliveLoop()
                     if (isServiceStopping) {
                         handleEvent(WsEvent.DISCONNECTED, formatThrowable(t))
                         return
@@ -175,6 +198,7 @@ class WsService : Service() {
 
                 override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                     if (!isCurrentConnection()) return
+                    markSocketActivity()
                     val message = bytes.utf8()
                     if (message.equals("pong", ignoreCase = true)) {
                         handleEvent(WsEvent.KEEPALIVE, "pong")
@@ -184,13 +208,21 @@ class WsService : Service() {
                 }
             })
 
-            startKeepaliveLoop()
         }
     }
 
     private fun startKeepaliveLoop() {
+        markSocketActivity()
         mainHandler.removeCallbacks(keepaliveRunnable)
         mainHandler.postDelayed(keepaliveRunnable, KEEPALIVE_INTERVAL_MS)
+    }
+
+    private fun stopKeepaliveLoop() {
+        mainHandler.removeCallbacks(keepaliveRunnable)
+    }
+
+    private fun markSocketActivity() {
+        lastSocketActivityAtMs = System.currentTimeMillis()
     }
 
     private fun scheduleReconnect(trigger: String) {
